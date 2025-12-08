@@ -5,7 +5,6 @@ const cors = require('cors'); // Required for allowing web browser requests
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
 
 // --- Middleware ---
 app.use(cors()); // Allow all cross-origin requests
@@ -66,4 +65,5 @@ app.post('/api/logs', async (req, res) => {
 
 // --- Server Start ---
 module.exports = app;
+
 

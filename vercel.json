@@ -1,3 +1,13 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
+}
+
 # (In your time-tracker-api folder)
 git add .
 git commit -m "Fixing Vercel data.json path and checking dependencies"

@@ -1,5 +1,5 @@
 {
-  "name": "timetracker-api",
+  "name": "time-sheet-tracker-api",
   "version": "1.0.0",
   "description": "Simple API for TimeTracker logs",
   "main": "server.js",

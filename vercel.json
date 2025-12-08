@@ -7,8 +7,3 @@
     }
   ]
 }
-
-# (In your time-tracker-api folder)
-git add .
-git commit -m "Fixing Vercel data.json path and checking dependencies"
-git push

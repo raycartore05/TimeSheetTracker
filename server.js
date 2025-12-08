@@ -1,84 +1,123 @@
-// server.js
-
-// 1. Import Dependencies
 const express = require('express');
-const cors = require('cors');
-// const bodyParser = require('body-parser'); // body-parser is now built into express
-
-// 2. Initialize the Express App
+const fs = require('fs'); // <--- New: File System module
+const path = require('path');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
+const DATA_FILE = path.join(__dirname, 'timelogs.json'); // Path to your data file
 
-// 3. Application State (In-Memory Database)
-// We'll use a simple array to store time logs temporarily
-let timeLogs = [];
-let nextLogId = 1;
+// Middleware to parse JSON bodies
+app.use(express.json());
 
-// 4. Apply Middleware (Using built-in Express parser)
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Middleware to parse incoming JSON request bodies
-app.use(express.urlencoded({ extended: true })); // Handle form data
+// --- File System Utility Functions ---
 
-// 5. Basic Welcome Route (GET /)
-app.get('/', (req, res) => {
-    res.send('Time Sheet Tracker API is running! Use /api/logs for time log operations.');
+/**
+ * Reads time logs from the JSON file.
+ * @returns {Array} An array of time logs.
+ */
+function readTimeLogs() {
+    try {
+        const data = fs.readFileSync(DATA_FILE, 'utf8');
+        // If file is empty, return an empty array
+        return data ? JSON.parse(data) : [];
+    } catch (error) {
+        // If file doesn't exist (first run), return an empty array
+        if (error.code === 'ENOENT') {
+            console.log('Data file not found. Starting with an empty array.');
+            return [];
+        }
+        console.error('Error reading time logs file:', error);
+        return [];
+    }
+}
+
+/**
+ * Writes the time logs array back to the JSON file.
+ * @param {Array} logs - The array of time logs to write.
+ */
+function writeTimeLogs(logs) {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(logs, null, 2), 'utf8');
+    } catch (error) {
+        console.error('Error writing time logs file:', error);
+    }
+}
+
+// Initialize timeLogs array from the file upon server start
+let timeLogs = readTimeLogs();
+
+// --- Helper to Generate New ID ---
+function generateId(logs) {
+    const maxId = logs.reduce((max, log) => Math.max(max, log.id), 0);
+    return maxId + 1;
+}
+
+// --- API Routes ---
+
+// [R] GET All Logs
+app.get('/api/logs', (req, res) => {
+    res.status(200).json(timeLogs);
 });
 
-// ----------------------------------------------------
-// 6. Time Log API Endpoints (CRUD)
-// ----------------------------------------------------
-
-// [C] CREATE: Add a new time log
-// POST /api/logs
+// [C] POST a New Log
 app.post('/api/logs', (req, res) => {
     const { taskName, duration, date } = req.body;
 
-    // Basic Validation
-    if (!taskName || !duration || !date) {
-        return res.status(400).json({ error: 'Missing required fields: taskName, duration, and date.' });
+    if (!taskName || duration === undefined || !date) {
+        return res.status(400).json({ error: 'Missing required fields: taskName, duration, and date are required.' });
     }
 
     const newLog = {
-        id: nextLogId++,
+        id: generateId(timeLogs),
         taskName,
-        duration, // e.g., 60 (minutes)
-        date,     // e.g., "2025-12-08"
+        duration: Number(duration),
+        date,
         createdAt: new Date().toISOString()
     };
 
     timeLogs.push(newLog);
-    console.log(`New log created: ${newLog.id}`);
-
-    // Respond with the newly created resource (Status 201 Created)
+    writeTimeLogs(timeLogs); // <--- New: Persist data
     res.status(201).json(newLog);
 });
 
-// [R] READ ALL: Get all time logs
-// GET /api/logs
-app.get('/api/logs', (req, res) => {
-    // Respond with the full list of logs
-    res.json(timeLogs);
-});
-
-// [R] READ ONE: Get a specific time log by ID
-// GET /api/logs/:id
-app.get('/api/logs/:id', (req, res) => {
-    // Get the ID from the URL parameters (it comes as a string)
+// [U] PUT (Update) a Log by ID
+app.put('/api/logs/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    const log = timeLogs.find(log => log.id === id);
+    const logIndex = timeLogs.findIndex(log => log.id === id);
 
-    if (!log) {
-        // If no log is found, send a 404 Not Found error
-        return res.status(404).json({ error: `Time log with ID ${id} not found.` });
+    if (logIndex === -1) {
+        return res.status(404).json({ error: 'Log not found.' });
     }
 
-    // Send the found log
-    res.json(log);
+    // Create a new updated log object
+    const updatedLog = {
+        ...timeLogs[logIndex],
+        ...req.body,
+        id: id, // Ensure ID remains unchanged
+        updatedAt: new Date().toISOString()
+    };
+
+    timeLogs[logIndex] = updatedLog;
+    writeTimeLogs(timeLogs); // <--- New: Persist data
+    res.status(200).json(updatedLog);
 });
 
+// [D] DELETE a Log by ID
+app.delete('/api/logs/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const initialLength = timeLogs.length;
 
-// 7. Start the Server
+    // Filter out the log with the matching ID
+    timeLogs = timeLogs.filter(log => log.id !== id);
+
+    if (timeLogs.length === initialLength) {
+        return res.status(404).json({ error: 'Log not found.' });
+    }
+
+    writeTimeLogs(timeLogs); // <--- New: Persist data
+    res.status(204).send(); // 204 No Content for successful deletion
+});
+
+// Start the server
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Access it at http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });

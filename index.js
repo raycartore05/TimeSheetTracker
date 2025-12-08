@@ -1,6 +1,6 @@
 const express = require('express');
 const fs = require('fs/promises'); // Use fs/promises for modern async/await
-const path = require('path');
+const DATA_FILE = path.join(__dirname, '..', 'data.json');
 const cors = require('cors'); // Required for allowing web browser requests
 
 const app = express();
@@ -66,3 +66,4 @@ app.post('/api/logs', async (req, res) => {
 
 // --- Server Start ---
 module.exports = app;
+

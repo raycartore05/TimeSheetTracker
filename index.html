@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeTracker Pro - Log Activity</title>
+    <style>
+        /* --- Root Variables and Reset --- */
+        :root {
+            --color-primary: #007bff; /* Blue Theme */
+            --color-primary-dark: #0056b3;
+            --color-text-light: #333;
+            --color-bg-light: #f4f7f9;
+            --color-card-light: #fff;
+            --color-border-light: #ddd;
+        }
+
+        .dark-mode {
+            --color-primary: #4da6ff;
+            --color-primary-dark: #007bff;
+            --color-text-dark: #e0e0e0;
+            --color-bg-dark: #121212;
+            --color-card-dark: #1e1e1e;
+            --color-border-dark: #333;
+        }
+
+        /* --- Base Styling --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { transition: background-color 0.3s, color 0.3s; min-height: 100vh; }
+        .light-mode { background-color: var(--color-bg-light); color: var(--color-text-light); }
+        .dark-mode { background-color: var(--color-bg-dark); color: var(--color-text-dark); }
+
+        /* --- Header and Navigation --- */
+        .app-header {
+            display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;
+            background-color: var(--color-card-light); border-bottom: 1px solid var(--color-border-light);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); position: sticky; top: 0; z-index: 100;
+        }
+        .dark-mode .app-header { background-color: var(--color-card-dark); border-bottom-color: var(--color-border-dark); }
+        
+        .logo-container { display: flex; align-items: center; }
+        
+        .app-logo { 
+            width: 30px; 
+            height: 30px; 
+            margin-right: 10px; 
+            object-fit: contain; 
+            flex-shrink: 0;
+        }
+
+        .app-name { font-size: 1.2em; font-weight: 600; color: var(--color-primary); }
+        .dark-mode-btn { background: none; border: none; cursor: pointer; font-size: 1.5em; padding: 5px; }
+
+        /* --- Main Container & Tabs --- */
+        .container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .tabs {
+            display: flex; margin-bottom: 20px; border-bottom: 2px solid var(--color-border-light); overflow-x: auto;
+        }
+        .dark-mode .tabs { border-bottom-color: var(--color-border-dark); }
+        .tab-btn {
+            flex-shrink: 0; padding: 10px 15px; border: none; background: none; cursor: pointer;
+            font-size: 1em; font-weight: 500; color: inherit; border-bottom: 2px solid transparent; transition: all 0.2s;
+        }
+        .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+        .tab-content {
+            background-color: var(--color-card-light); padding: 20px; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); transition: background-color 0.3s;
+        }
+        .dark-mode .tab-content { background-color: var(--color-card-dark); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); }
+        .hidden { display: none; }
+        h2 { color: var(--color-primary); margin-bottom: 20px; font-size: 1.5em; }
+        h3 { margin-top: 30px; margin-bottom: 15px; font-size: 1.2em; color: var(--color-text-light); }
+        .dark-mode h3 { color: var(--color-text-dark); }
+
+        /* --- Input and Button Styling --- */
+        input[type="datetime-local"], input[type="number"], input[type="password"], select, textarea, input[type="text"] {
+            width: 100%; padding: 10px; border: 1px solid var(--color-border-light); border-radius: 4px;
+            background-color: var(--color-card-light); color: inherit; font-size: 1em; transition: border-color 0.2s;
+        }
+        .dark-mode input, .dark-mode select, .dark-mode textarea { border-color: var(--color-border-dark); background-color: var(--color-bg-dark); }
+        input:focus, select:focus, textarea:focus { border-color: var(--color-primary); outline: none; }
+        
+        .submit-btn, .login-btn { 
+            width: 100%; 
+            padding: 12px; 
+            background-color: var(--color-primary); 
+            color: white; 
+            border: none;
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-weight: 600; 
+            transition: background-color 0.2s, opacity 0.2s; 
+            margin-top: 10px;
+            text-align: center;
+            display: block;
+        }
+        .admin-section button:not(.edit-btn):not(.delete-btn) { 
+            width: 100%; 
+            padding: 12px; 
+            background-color: var(--color-primary); 
+            color: white; 
+            border: none;
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-weight: 600; 
+            transition: background-color 0.2s, opacity 0.2s; 
+            margin-top: 10px;
+            text-align: center;
+            display: block;
+        }
+        .submit-btn:hover, .login-btn:hover, .admin-section button:not(.edit-btn):not(.delete-btn):hover { 
+            background-color: var(--color-primary-dark); 
+            opacity: 0.9;
+        }
+        
+        /* User Table Styling */
+        .user-actions button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        .edit-btn { background-color: #ffc107; color: #333; border: 1px solid #ffc107; }
+        .edit-btn:hover { background-color: #e0a800; }
+        .delete-btn { background-color: #dc3545; color: white; border: 1px solid #dc3545; }
+        .delete-btn:hover { background-color: #c82333; }
+        
+        /* Specific style for the dangerous action button (Clear All Logs) */
+        .admin-section button[onclick="clearData()"] {
+            background-color: #dc3545; /* Red color */
+        }
+        .admin-section button[onclick="clearData()"]:hover {
+            background-color: #c82333;
+        }
+        
+        .error-message { color: red; margin-top: 10px; font-weight: bold; }
+        
+        /* Data Tables */
+        .data-table {
+            width: 100%; border-collapse: collapse; margin-top: 15px;
+        }
+        .data-table th, .data-table td {
+            padding: 10px; text-align: left; border-bottom: 1px solid var(--color-border-light);
+        }
+        .dark-mode .data-table th, .dark-mode .data-table td { border-bottom-color: var(--color-border-dark); }
+        .data-table th { background-color: var(--color-bg-light); color: var(--color-primary-dark); font-weight: 600; }
+        .dark-mode .data-table th { background-color: var(--color-card-dark); }
+
+        /* --- Dashboard/Summary Styling (unchanged) --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background-color: var(--color-card-light); padding: 15px; border-radius: 8px;
+            text-align: center; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .dark-mode .summary-card { background-color: var(--color-card-dark); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); }
+        .summary-card h4 { margin-bottom: 5px; color: var(--color-primary); font-size: 0.9em; }
+        .summary-card p { font-size: 1.8em; font-weight: bold; }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+            gap: 20px;
+        }
+        
+        .chart-box {
+            position: relative;
+            background-color: var(--color-card-light);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            min-height: 400px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .dark-mode .chart-box { background-color: var(--color-card-dark); }
+
+        .chart-box h4 {
+            font-size: 1.1em;
+            color: var(--color-primary-dark);
+            margin-bottom: 15px;
+        }
+        
+        .chart-canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            height: 300px;
+        }
+        
+        /* Chart Center Text Styling */
+        .chart-center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            text-align: center;
+        }
+        .chart-center-text p {
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+        .chart-center-text span {
+            display: block;
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 5px; 
+        }
+
+        /* --- Admin Styling --- */
+        .admin-section {
+            padding: 20px; border: 1px solid var(--color-border-light); border-radius: 6px;
+            margin-bottom: 20px; background-color: var(--color-card-light);
+        }
+        .dark-mode .admin-section { border-color: var(--color-border-dark); background-color: var(--color-card-dark); }
+        
+        /* Media Query for Larger Screens */
+        @media (min-width: 600px) {
+            .container { padding: 40px 20px; }
+            .log-form { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .log-form .form-group:nth-child(5),
+            .log-form .submit-btn { grid-column: span 2; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+</head>
+<body class="light-mode">
+    <header class="app-header">
+        <div class="logo-container">
+            <img id="app-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwN2JmZiI+PHBhdGggZD0iTTEyIDJjNS41MiAwIDcgMS40OCAxIDcuMDJDNy40OCAxMiAyIDE3LjUyIDIgMjJoMjBjMCA0LjQyLTIuMDgtNS41OC02Ljg0LTEyLjk3QzE1LjA5IDcuMzcgMTYuNDggMiAxMiAyem02IDE2bC01LTUtMDUgNnptNC0yVjIuODJhMSAxIDAgMCAxIC42Ny0uOTVsLS41Mi0uOTVhMyAzIDAgMCAwLTIuNDctLjQzSDguMTRhMyAzIDAgMCAwLTIuNDcgLjQzTDUuMTUgMS44N2ExIDEgMCAwIDEgLjY3Ljk1VjE2aDEydjEuODdhMSAxIDAgMCAxLS42Ny45NWwuNTIuOTVhMyAzIDAgMCAwIDIuNDcgLjQzSDE1Ljg2YTMgMyAwIDAgMC0yLjQ3LS40M0wxMyAxOC4xM3oiLz48L3N2Zz4=" alt="App Logo" class="app-logo">
+            <h1 id="app-name" class="app-name">TimeTracker Pro</h1>
+        </div>
+        <button id="dark-mode-toggle" class="dark-mode-btn">🌙</button>
+    </header>
+
+    <main class="container">
+        
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="log">Time Log</button>
+            <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="admin">Admin Portal</button>
+        </nav>
+
+        <section id="log" class="tab-content active">
+            <h2>Activity Entry</h2>
+            <form id="time-log-form" class="log-form">
+                
+                <div class="form-group">
+                    <label for="user-name">Name</label>
+                    <select id="user-name" required> 
+                        <option value="">-- Select User --</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="time-in">Time-in</label>
+                    <input type="datetime-local" id="time-in" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="time-out">Time-out</label>
+                    <input type="datetime-local" id="time-out">
+                </div>
+
+                <div class="form-group">
+                    <label for="hubstaff-time">Hubstaff Time (Minutes)</label>
+                    <input type="number" id="hubstaff-time" placeholder="e.g., 480" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="remarks">Remarks</label>
+                    <textarea id="remarks" rows="3" placeholder="Brief summary of tasks..."></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Log Activity</button>
+            </form>
+        </section>
+
+        <section id="dashboard" class="tab-content hidden">
+            <h2>Activity Dashboard</h2>
+            
+            <h3>Summary Metrics</h3>
+            <div id="summary-metrics" class="dashboard-grid">
+                </div>
+            
+            <h3 style="margin-top: 30px;">User Performance Comparison</h3>
+            <div id="user-charts" class="chart-grid">
+                </div>
+        </section>
+
+        <section id="admin" class="tab-content hidden">
+            <div id="admin-login">
+                <h2>Admin Login</h2>
+                <form id="admin-login-form">
+                    <div class="form-group">
+                        <label for="admin-password">Password</label>
+                        <input type="password" id="admin-password" required>
+                    </div>
+                    <button type="submit" class="login-btn">Log In</button>
+                    <p id="login-error" class="error-message hidden">Invalid password. Please try again.</p>
+                </form>
+            </div>
+
+            <div id="admin-data" class="hidden">
+                <h2>Admin Portal Settings</h2>
+                
+                <div class="admin-section">
+                    <h3>👥 Manage Users</h3>
+                    
+                    <form id="add-user-form">
+                        <div class="form-group">
+                            <label for="new-user-name">New User Name</label>
+                            <input type="text" id="new-user-name" placeholder="Enter full user name" required>
+                            <input type="hidden" id="edit-user-id"> </div>
+                        <button type="submit" id="add-user-btn">Add User</button>
+                    </form>
+
+                    <table class="data-table" style="margin-top: 20px;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-data-body">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="admin-section">
+                    <h3>App Branding</h3>
+                    <form id="branding-form">
+                        <div class="form-group">
+                            <label for="app-name-input">App Name</label>
+                            <input type="text" id="app-name-input" placeholder="Enter new App Name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="logo-upload">App Logo (PNG/JPG/SVG)</label>
+                            <input type="file" id="logo-upload" accept="image/png, image/jpeg, image/svg+xml">
+                            <p style="font-size: 0.8em; opacity: 0.8; margin-top: 5px;">
+                                Note: Image is saved locally via browser storage (Base64). 
+                                **Max size: 500KB. PNG/JPG/SVG only.**
+                            </p>
+                        </div>
+                        <button type="submit">Update Branding</button>
+                    </form>
+                </div>
+
+                <div class="admin-section">
+                    <h3>Time Log Records</h3>
+                    <p>Current data is stored via API or in the **Browser's Local Storage** (Prototype Fallback).</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Time-in</th>
+                                <th>Time-out</th>
+                                <th>Hubstaff (Min)</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-data-body">
+                            </tbody>
+                    </table>
+                    <button onclick="clearData()">Clear All Logs (Reset Prototype)</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- CONFIGURATION ---
+        const ADMIN_PASSWORD = "admin123"; 
+        const DEFAULT_USERS = [{id: 1, name: "Alice Johnson"}, {id: 2, name: "Bob Smith"}, {id: 3, name: "Charlie Day"}];
+        const MAX_FILE_SIZE_BYTES = 500 * 1024; // 500KB
+        const API_BASE_URL = 'http://localhost:3000'; 
+
+        // --- Global Variables ---
+        let timeLogs = [];
+        let users = []; 
+
+        // --- Chart.js Plugin for Center Text (Auto-Scaling) ---
+        const centerTextPlugin = {
+            id: 'centerText',
+            beforeDraw(chart) {
+                if (chart.config.type !== 'doughnut') return;
+                
+                const { ctx, chartArea } = chart;
+                const canvasWidth = chart.width;
+                const canvasHeight = chart.height;
+                
+                const hubstaffIndex = 1;
+                const hubstaffValue = chart.data.datasets[0].data[hubstaffIndex];
+                
+                ctx.restore();
+                ctx.textBaseline = 'middle';
+                
+                const text = `${hubstaffValue}`; 
+                const label = 'Min'; 
+                const center = { x: canvasWidth / 2, y: canvasHeight / 2 };
+
+                let fontSize = Math.floor(Math.min(canvasWidth, canvasHeight) / 5);
+                let textWidth;
+                
+                do {
+                    ctx.font = `bold ${fontSize}px sans-serif`;
+                    textWidth = ctx.measureText(text).width;
+                    fontSize--;
+                } while (textWidth > canvasWidth * 0.5 && fontSize > 10); 
+
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.fillStyle = document.body.classList.contains('dark-mode') ? '#e0e0e0' : '#333';
+                ctx.fillText(text, center.x - (ctx.measureText(text).width / 2), center.y - 10); 
+
+                ctx.font = '12px sans-serif'; 
+                ctx.fillStyle = '#6c757d';
+                ctx.fillText(label, center.x - (ctx.measureText(label).width / 2), center.y + 20);
+
+                ctx.save();
+            }
+        };
+        Chart.register(centerTextPlugin);
+        
+        // --- User Management Functions ---
+        
+        function loadUsers() {
+            const storedUsers = localStorage.getItem('timeTrackerUsers');
+            if (storedUsers) {
+                users = JSON.parse(storedUsers);
+            } else {
+                users = DEFAULT_USERS.map(user => ({
+                    id: user.id,
+                    name: user.name
+                }));
+                localStorage.setItem('timeTrackerUsers', JSON.stringify(users));
+            }
+        }
+
+        function saveUsers() {
+            localStorage.setItem('timeTrackerUsers', JSON.stringify(users));
+        }
+        
+        function getNextUserId() {
+            if (users.length === 0) return 1;
+            const maxId = users.reduce((max, user) => (user.id > max ? user.id : max), 0);
+            return maxId + 1;
+        }
+
+        function renderUserTable() {
+            const tbody = document.getElementById('user-data-body');
+            const userSelect = document.getElementById('user-name');
+            tbody.innerHTML = '';
+            userSelect.innerHTML = '<option value="">-- Select User --</option>';
+
+            users.forEach(user => {
+                // Populate Time Log Dropdown
+                userSelect.innerHTML += `<option value="${user.name}">${user.name}</option>`;
+
+                // Populate Admin User Table
+                const row = tbody.insertRow();
+                row.insertCell().textContent = user.name;
+                
+                const actionCell = row.insertCell();
+                actionCell.className = 'user-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.className = 'edit-btn';
+                editBtn.onclick = () => prepareEditUser(user.id);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteUser(user.id);
+
+                actionCell.appendChild(editBtn);
+                actionCell.appendChild(deleteBtn);
+            });
+            
+            // Reset Add/Edit form button text
+            document.getElementById('add-user-btn').textContent = 'Add User';
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('edit-user-id').value = '';
+        }
+        
+        function addUser(e) {
+            e.preventDefault();
+            const newUserNameInput = document.getElementById('new-user-name');
+            const editUserId = document.getElementById('edit-user-id').value;
+            const newName = newUserNameInput.value.trim();
+            
+            if (newName === "") return;
+            
+            if (editUserId) {
+                // EDIT LOGIC
+                const id = parseInt(editUserId);
+                const userIndex = users.findIndex(u => u.id === id);
+                if (userIndex !== -1) {
+                    const oldName = users[userIndex].name;
+                    
+                    // 1. Update the user list
+                    users[userIndex].name = newName;
+                    
+                    // 2. Update existing time logs (CRITICAL FIX)
+                    timeLogs.forEach(log => {
+                        if (log.user === oldName) {
+                            log.user = newName;
+                        }
+                    });
+                    localStorage.setItem('timeTrackerLogs', JSON.stringify(timeLogs));
+
+                    alert(`User '${oldName}' updated to '${newName}' successfully. Existing logs updated.`);
+                }
+            } else {
+                // ADD LOGIC
+                if (users.some(u => u.name.toLowerCase() === newName.toLowerCase())) {
+                    alert("Error: User already exists.");
+                    return;
+                }
+                const newId = getNextUserId();
+                users.push({ id: newId, name: newName });
+                alert(`User '${newName}' added successfully.`);
+            }
+
+            saveUsers();
+            renderUserTable();
+        }
+
+        function prepareEditUser(id) {
+            const user = users.find(u => u.id === id);
+            if (user) {
+                document.getElementById('new-user-name').value = user.name;
+                document.getElementById('edit-user-id').value = user.id;
+                document.getElementById('add-user-btn').textContent = `Save Changes for ${user.name}`;
+            }
+        }
+        
+        function deleteUser(id) {
+            const user = users.find(u => u.id === id);
+            if (user && confirm(`Are you sure you want to delete user: ${user.name}? This will NOT delete their existing logs.`)) {
+                users = users.filter(u => u.id !== id);
+                saveUsers();
+                renderUserTable();
+                alert(`User '${user.name}' deleted.`);
+            }
+        }
+
+
+        // --- Data Persistence Functions ---
+        
+        async function loadTimeLogs() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/logs`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                timeLogs = await response.json();
+            } catch (error) {
+                console.error('API Load Error (Falling back to local storage): ', error.message);
+                const storedLogs = localStorage.getItem('timeTrackerLogs');
+                if (storedLogs) {
+                    timeLogs = JSON.parse(storedLogs);
+                } else {
+                    timeLogs = [];
+                }
+            }
+        }
+
+        async function saveTimeLog(log) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(log)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server returned an error status.');
+                }
+
+                const result = await response.json();
+                timeLogs.push(result.log);
+                
+                alert(`Log for ${log.user} submitted and saved online successfully!`);
+
+            } catch (error) {
+                console.error('API Save Error (Saving to local storage only): ', error);
+                let localLogs = JSON.parse(localStorage.getItem('timeTrackerLogs') || '[]');
+                localLogs.push(log);
+                localStorage.setItem('timeTrackerLogs', JSON.stringify(localLogs));
+                timeLogs.push(log);
+                alert("Warning: Failed to save log online. Saved to local browser storage only.");
+            }
+        }
+
+        // --- Branding Functions ---
+        function loadBranding() {
+            const appName = localStorage.getItem('appName') || 'TimeTracker Pro';
+            const appLogoBase64 = localStorage.getItem('appLogoBase64');
+            
+            document.getElementById('app-name').textContent = appName;
+            const appNameInput = document.getElementById('app-name-input');
+            if(appNameInput) appNameInput.value = appName;
+
+            if (appLogoBase64) {
+                document.getElementById('app-logo').src = appLogoBase64;
+            }
+        }
+
+        async function updateBranding(e) {
+            e.preventDefault();
+            const newName = document.getElementById('app-name-input').value;
+            const logoInput = document.getElementById('logo-upload');
+            const logoFile = logoInput.files[0];
+            let logoUpdated = false;
+            let nameUpdated = false;
+
+            if (newName && newName !== document.getElementById('app-name').textContent) {
+                localStorage.setItem('appName', newName);
+                document.getElementById('app-name').textContent = newName;
+                nameUpdated = true;
+            }
+
+            if (logoFile) {
+                if (logoFile.size > MAX_FILE_SIZE_BYTES) {
+                    alert(`File size exceeds the maximum limit of ${MAX_FILE_SIZE_BYTES / 1024}KB.`);
+                    logoInput.value = ''; 
+                    return;
+                }
+                
+                try {
+                    const base64Data = await readFileAsBase64(logoFile);
+                    localStorage.setItem('appLogoBase64', base64Data);
+                    document.getElementById('app-logo').src = base64Data;
+                    logoUpdated = true;
+                } catch (error) {
+                    console.error('Error reading file in updateBranding:', error);
+                    alert("Error reading logo file.");
+                    return;
+                }
+            }
+
+            if (nameUpdated || logoUpdated) {
+                 alert("Branding updated successfully!");
+                 if (logoUpdated) logoInput.value = ''; 
+            } else {
+                 alert("No changes detected.");
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (reader.error) {
+                        console.error("FileReader error:", reader.error);
+                        return reject(new Error('FileReader failed.'));
+                    }
+                    resolve(reader.result);
+                };
+                reader.onerror = (error) => {
+                    console.error("FileReader critical error:", error);
+                    reject(error);
+                };
+                if (!file.type.match('image/(png|jpeg|svg.*)')) {
+                    return reject(new Error('Invalid file type selected.'));
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // --- Dashboard Calculations & Rendering ---
+        const formatMinToHours = (minutes) => {
+            const sign = minutes < 0 ? "-" : "";
+            minutes = Math.abs(minutes);
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${sign}${h}h ${m}m`;
+        };
+
+        function calculateMetrics() {
+            const metrics = {};
+            let totalLoggedTime = 0;
+            let totalHubstaffTime = 0;
+            
+            const userNames = users.map(u => u.name); // Use current user list
+
+            // Initialize metrics for all current users
+            userNames.forEach(user => {
+                metrics[user] = { logged: 0, hubstaff: 0, difference: 0 };
+            });
+
+            timeLogs.forEach(log => {
+                const user = log.user;
+                const hubstaffMin = parseInt(log.hubstaffTime) || 0;
+                let loggedMin = 0;
+
+                if (log.timeIn && log.timeOut && log.timeOut !== 'N/A') {
+                    const dateIn = new Date(log.timeIn);
+                    const dateOut = new Date(log.timeOut);
+                    loggedMin = Math.round((dateOut - dateIn) / (1000 * 60));
+                }
+
+                // Ensure we only count logs for current users (or use the newly updated name)
+                if (user && metrics[user]) { 
+                    metrics[user].logged += loggedMin;
+                    metrics[user].hubstaff += hubstaffMin;
+                }
+                
+                totalLoggedTime += loggedMin;
+                totalHubstaffTime += hubstaffMin;
+            });
+            
+            Object.keys(metrics).forEach(user => {
+                 const m = metrics[user];
+                 m.difference = Math.abs(m.logged - m.hubstaff);
+            });
+
+            return { metrics, totalLoggedTime, totalHubstaffTime, totalDifference: Math.abs(totalLoggedTime - totalHubstaffTime) };
+        }
+
+        let userChartInstances = {};
+
+        function initializeChart() {
+            const { metrics, totalLoggedTime, totalHubstaffTime, totalDifference } = calculateMetrics();
+            const userChartsContainer = document.getElementById('user-charts');
+            const summaryMetricsContainer = document.getElementById('summary-metrics');
+
+            Object.values(userChartInstances).forEach(chart => chart.destroy());
+            userChartInstances = {};
+            userChartsContainer.innerHTML = '';
+            summaryMetricsContainer.innerHTML = '';
+            
+            // Summary Dashboard
+            summaryMetricsContainer.innerHTML = `
+                <div class="summary-card" style="border-left: 5px solid #007bff;">
+                    <h4>Total Logged Time</h4>
+                    <p>${formatMinToHours(totalLoggedTime)}</p>
+                </div>
+                <div class="summary-card" style="border-left: 5px solid #28a745;">
+                    <h4>Total Hubstaff Time</h4>
+                    <p>${formatMinToHours(totalHubstaffTime)}</p>
+                </div>
+                <div class="summary-card" style="border-left: 5px solid ${totalLoggedTime === totalHubstaffTime ? '#17a2b8' : '#ffc107'};">
+                    <h4>Total Difference</h4>
+                    <p>${formatMinToHours(totalDifference)}</p>
+                </div>
+            `;
+            
+            // Chart per User
+            const userNames = users.map(u => u.name); // Use current user list
+            userNames.forEach(user => {
+                const userMetrics = metrics[user];
+                // Only render a chart if the user exists and has some data
+                if (!userMetrics || (userMetrics.logged === 0 && userMetrics.hubstaff === 0 && userMetrics.difference === 0)) return; 
+
+                const chartBox = document.createElement('div');
+                chartBox.className = 'chart-box';
+                
+                chartBox.innerHTML = `
+                    <h4>${user}</h4>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="chart-${user.replace(/\s/g, '-')}" ></canvas>
+                        <div class="chart-center-text"></div>
+                    </div>
+                `;
+                userChartsContainer.appendChild(chartBox);
+                
+                const ctx = document.getElementById(`chart-${user.replace(/\s/g, '-')}`).getContext('2d');
+
+                userChartInstances[user] = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Logged Time', 'Hubstaff Time', 'Difference'],
+                        datasets: [{
+                            data: [userMetrics.logged, userMetrics.hubstaff, userMetrics.difference],
+                            backgroundColor: ['#007bff', '#28a745', '#ffc107'],
+                            borderWidth: 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%', 
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: document.body.classList.contains('dark-mode') ? '#e0e0e0' : '#333',
+                                    padding: 15,
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.label || '';
+                                        if (label) { label += ': '; }
+                                        const value = context.parsed;
+                                        return label + formatMinToHours(value);
+                                    }
+                                }
+                            },
+                        },
+                    },
+                    plugins: [centerTextPlugin]
+                });
+            });
+        }
+        
+        // --- DOMContentLoaded & Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadBranding();
+            loadUsers(); 
+            renderUserTable(); 
+            await loadTimeLogs(); 
+            initializeTheme();
+            initializeEventListeners();
+        });
+
+
+        // --- Event Listeners Setup ---
+        function initializeEventListeners() {
+            // Tab Switching
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.dataset.tab;
+
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.add('hidden'));
+
+                    button.classList.add('active');
+                    document.getElementById(targetTab).classList.remove('hidden');
+
+                    if (targetTab === 'dashboard') {
+                        initializeChart(); 
+                    } else if (targetTab === 'admin') {
+                        if (localStorage.getItem('adminLoggedIn') === 'true') {
+                             displayAdminData();
+                         } else {
+                             document.getElementById('admin-login').classList.remove('hidden');
+                             document.getElementById('admin-data').classList.add('hidden');
+                         }
+                    }
+                });
+            });
+            
+            // Time Log Submission
+            document.getElementById('time-log-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const logEntry = {
+                    user: document.getElementById('user-name').value,
+                    timeIn: document.getElementById('time-in').value,
+                    timeOut: document.getElementById('time-out').value || 'N/A',
+                    hubstaffTime: document.getElementById('hubstaff-time').value,
+                    remarks: document.getElementById('remarks').value,
+                };
+                await saveTimeLog(logEntry);
+                e.target.reset();
+            });
+            
+            // Admin Login
+            document.getElementById('admin-login-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const passwordInput = document.getElementById('admin-password').value;
+                const errorMessage = document.getElementById('login-error');
+                
+                if (passwordInput === ADMIN_PASSWORD) {
+                    localStorage.setItem('adminLoggedIn', 'true');
+                    errorMessage.classList.add('hidden');
+                    document.getElementById('admin-password').value = '';
+                    const appNameInput = document.getElementById('app-name-input');
+                    if(appNameInput) appNameInput.value = document.getElementById('app-name').textContent;
+                    displayAdminData();
+                } else {
+                    errorMessage.classList.remove('hidden');
+                }
+            });
+            
+            // Branding Form Submission
+            document.getElementById('branding-form').addEventListener('submit', updateBranding);
+            
+            // User Management Form Submission
+            document.getElementById('add-user-form').addEventListener('submit', addUser);
+            
+            // Dark Mode
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            darkModeToggle.addEventListener('click', () => {
+                if (document.body.classList.contains('light-mode')) {
+                    document.body.classList.replace('light-mode', 'dark-mode');
+                    darkModeToggle.textContent = '☀️';
+                    localStorage.setItem('theme', 'dark-mode');
+                } else {
+                    document.body.classList.replace('dark-mode', 'light-mode');
+                    darkModeToggle.textContent = '🌙';
+                    localStorage.setItem('theme', 'light-mode');
+                }
+                if (document.querySelector('.tab-btn[data-tab="dashboard"]').classList.contains('active')) {
+                     initializeChart();
+                }
+            });
+        }
+        
+        function initializeTheme() {
+            const currentTheme = localStorage.getItem('theme');
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            if (currentTheme) {
+                document.body.className = currentTheme;
+                darkModeToggle.textContent = currentTheme === 'dark-mode' ? '☀️' : '🌙';
+            }
+        }
+        
+        // --- Admin Data Rendering ---
+        function displayAdminData() {
+            document.getElementById('admin-login').classList.add('hidden');
+            document.getElementById('admin-data').classList.remove('hidden');
+            renderAdminTable();
+        }
+        
+        async function renderAdminTable() {
+            await loadTimeLogs(); 
+            const tbody = document.getElementById('log-data-body');
+            tbody.innerHTML = '';
+
+            renderUserTable(); 
+
+            timeLogs.slice().reverse().forEach(log => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = log.user;
+                row.insertCell().textContent = log.timeIn ? new Date(log.timeIn).toLocaleString() : 'N/A';
+                row.insertCell().textContent = log.timeOut && log.timeOut !== 'N/A' ? new Date(log.timeOut).toLocaleString() : 'N/A';
+                row.insertCell().textContent = log.hubstaffTime;
+                row.insertCell().textContent = log.remarks;
+            });
+        }
+        
+        window.clearData = function() {
+            if (confirm("Are you sure you want to clear ALL logged data? This only clears browser storage. You need to manually clear the server data.")) {
+                localStorage.removeItem('timeTrackerLogs');
+                localStorage.removeItem('adminLoggedIn');
+                timeLogs = [];
+                renderAdminTable();
+                document.getElementById('admin-login').classList.remove('hidden');
+                document.getElementById('admin-data').classList.add('hidden');
+                alert("All local logs cleared and admin logged out.");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,26 +1,20 @@
 const express = require('express');
-const fs = require('fs'); // <--- New: File System module
+const fs = require('fs');
 const path = require('path');
 const app = express();
 const PORT = 3000;
-const DATA_FILE = path.join(__dirname, 'timelogs.json'); // Path to your data file
+const DATA_FILE = path.join(__dirname, 'timelogs.json');
 
 // Middleware to parse JSON bodies
 app.use(express.json());
 
 // --- File System Utility Functions ---
 
-/**
- * Reads time logs from the JSON file.
- * @returns {Array} An array of time logs.
- */
 function readTimeLogs() {
     try {
         const data = fs.readFileSync(DATA_FILE, 'utf8');
-        // If file is empty, return an empty array
         return data ? JSON.parse(data) : [];
     } catch (error) {
-        // If file doesn't exist (first run), return an empty array
         if (error.code === 'ENOENT') {
             console.log('Data file not found. Starting with an empty array.');
             return [];
@@ -30,26 +24,28 @@ function readTimeLogs() {
     }
 }
 
-/**
- * Writes the time logs array back to the JSON file.
- * @param {Array} logs - The array of time logs to write.
- */
 function writeTimeLogs(logs) {
     try {
+        // Write data with 2 spaces for readability
         fs.writeFileSync(DATA_FILE, JSON.stringify(logs, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing time logs file:', error);
     }
 }
 
+// --- Optimization: Helper to Find Max ID ---
+function findMaxId(logs) {
+    // Finds the largest existing ID or returns 0 if the array is empty
+    return logs.reduce((max, log) => Math.max(max, log.id), 0);
+}
+
 // Initialize timeLogs array from the file upon server start
 let timeLogs = readTimeLogs();
 
-// --- Helper to Generate New ID ---
-function generateId(logs) {
-    const maxId = logs.reduce((max, log) => Math.max(max, log.id), 0);
-    return maxId + 1;
-}
+// --- Optimization: Global Counter Variable ---
+// The next ID to be assigned will be 1 greater than the maximum existing ID.
+let nextId = findMaxId(timeLogs) + 1;
+
 
 // --- API Routes ---
 
@@ -67,7 +63,7 @@ app.post('/api/logs', (req, res) => {
     }
 
     const newLog = {
-        id: generateId(timeLogs),
+        id: nextId++, // Use current nextId then immediately increment for the next request
         taskName,
         duration: Number(duration),
         date,
@@ -75,7 +71,7 @@ app.post('/api/logs', (req, res) => {
     };
 
     timeLogs.push(newLog);
-    writeTimeLogs(timeLogs); // <--- New: Persist data
+    writeTimeLogs(timeLogs);
     res.status(201).json(newLog);
 });
 
@@ -88,16 +84,15 @@ app.put('/api/logs/:id', (req, res) => {
         return res.status(404).json({ error: 'Log not found.' });
     }
 
-    // Create a new updated log object
     const updatedLog = {
         ...timeLogs[logIndex],
         ...req.body,
-        id: id, // Ensure ID remains unchanged
+        id: id, 
         updatedAt: new Date().toISOString()
     };
 
     timeLogs[logIndex] = updatedLog;
-    writeTimeLogs(timeLogs); // <--- New: Persist data
+    writeTimeLogs(timeLogs);
     res.status(200).json(updatedLog);
 });
 
@@ -106,15 +101,14 @@ app.delete('/api/logs/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const initialLength = timeLogs.length;
 
-    // Filter out the log with the matching ID
     timeLogs = timeLogs.filter(log => log.id !== id);
 
     if (timeLogs.length === initialLength) {
         return res.status(404).json({ error: 'Log not found.' });
     }
 
-    writeTimeLogs(timeLogs); // <--- New: Persist data
-    res.status(204).send(); // 204 No Content for successful deletion
+    writeTimeLogs(timeLogs);
+    res.status(204).send();
 });
 
 // Start the server

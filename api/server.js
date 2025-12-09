@@ -1,132 +1,105 @@
-// server.js (UPDATED CODE)
+// api/index.js
 const express = require('express');
-const cors = require('cors'); // --- 1. Import CORS ---
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs/promises'); // Use fs/promises for modern async/await
+const path = require('path'); // <--- CRITICAL FIX: Importing the path module
+const cors = require('cors'); // Required for allowing web browser requests
+
 const app = express();
-const PORT = 3000; 
-const DATA_FILE = path.join(__dirname, 'timelogs.json');
+const PORT = process.env.PORT || 3000;
 
-// --- 2. Apply CORS Middleware ---
-app.use(cors()); 
+// Corrected DATA_FILE path
+// On Vercel, __dirname is /var/task/api, so we use '..' to step up to the project root.
+const DATA_FILE = path.join(__dirname, '..', 'timelogs.json'); 
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+// --- Middleware ---
+app.use(cors()); // Allow all cross-origin requests
+app.use(express.json()); // To parse JSON bodies
 
-// --- File System Utility Functions ---
-
-function readTimeLogs() {
+// --- Helper function to ensure data file exists ---
+// WARNING: This file-based persistence will NOT work on Vercel long-term.
+// It is included here only to make the script runnable.
+async function loadLogs() {
     try {
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        // Safely parse JSON or return an empty array if the file is empty/invalid
-        return data ? JSON.parse(data) : [];
+        const data = await fs.readFile(DATA_FILE, 'utf-8');
+        // Handle case where file might exist but be empty
+        return data.trim() ? JSON.parse(data) : [];
     } catch (error) {
         if (error.code === 'ENOENT') {
-            console.log('Data file not found. Starting with an empty array.');
-            return [];
+            console.log('timelogs.json not found. Initializing with empty array.');
+            return []; // File not found, return empty array
         }
-        console.error('Error reading time logs file:', error);
-        return [];
+        // If it's a JSON parse error, it will throw, which is okay for now.
+        throw error; 
     }
 }
 
-function writeTimeLogs(logs) {
+// Helper function to write logs
+async function writeLogs(logs) {
+    // Note: Writing to the filesystem is highly discouraged in Vercel.
+    await fs.writeFile(DATA_FILE, JSON.stringify(logs, null, 2));
+}
+
+// --- API Endpoints (CRUD) ---
+
+// [R] GET /api/logs: Retrieve all time logs
+app.get('/api/logs', async (req, res) => {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(logs, null, 2), 'utf8');
+        const logs = await loadLogs();
+        res.status(200).json(logs);
     } catch (error) {
-        console.error('Error writing time logs file:', error);
+        console.error('Error fetching logs:', error);
+        res.status(500).json({ message: 'Failed to retrieve logs from server.' });
     }
+});
+
+// [C] POST /api/logs: Save a new time log
+app.post('/api/logs', async (req, res) => {
+    try {
+        const { user, timeIn, timeOut, hubstaffTime, remarks } = req.body;
+        
+        // Basic validation
+        if (!user || !timeIn || hubstaffTime === undefined) {
+             return res.status(400).json({ message: 'Missing required log fields (user, timeIn, hubstaffTime).' });
+        }
+        
+        const logs = await loadLogs();
+        
+        const newLog = {
+            id: Date.now(), // Simple unique ID
+            user,
+            timeIn,
+            timeOut: timeOut || 'N/A', 
+            hubstaffTime: Number(hubstaffTime),
+            remarks: remarks || '',
+            timestamp: new Date().toISOString()
+        };
+        
+        logs.push(newLog);
+
+        await writeLogs(logs);
+
+        // Respond with an object that contains the log object, as the frontend expects { log: ... }
+        res.status(201).json({ message: 'Log created successfully', log: newLog });
+        
+    } catch (error) {
+        console.error('Error saving log:', error);
+        res.status(500).json({ message: 'Failed to save log to server.' });
+    }
+});
+
+
+// Note: PUT/DELETE routes are usually added here but are omitted for simplicity 
+// in this basic template. Your original code's PUT/DELETE logic was in the 
+// first `server.js` file you provided, but the simplified version you sent later 
+// only included GET and POST. Assuming you only need the essential routes now.
+
+// --- Server Start/Export ---
+// Export the app for Vercel Serverless Function deployment
+module.exports = app;
+
+// Local development only (Vercel ignores this)
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
 }
-
-function findMaxId(logs) {
-    // Ensures IDs are unique, using timestamp as a fallback if no explicit ID exists
-    return logs.reduce((max, log) => Math.max(max, log.id || 0), 0);
-}
-
-let timeLogs = readTimeLogs();
-let nextId = findMaxId(timeLogs) + 1;
-
-
-// --- API Routes ---
-
-// [R] GET All Logs
-app.get('/api/logs', (req, res) => {
-    res.status(200).json(timeLogs);
-});
-
-// [C] POST a New Log (--- 3. Updated Log Fields ---)
-app.post('/api/logs', (req, res) => {
-    // Expect the fields sent by index.html
-    const { user, timeIn, timeOut, hubstaffTime, remarks } = req.body; 
-
-    // Basic validation based on frontend requirements
-    if (!user || !timeIn || hubstaffTime === undefined) {
-        return res.status(400).json({ error: 'Missing required fields: user, timeIn, and hubstaffTime are required.' });
-    }
-
-    const newLog = {
-        id: nextId++,
-        user,
-        timeIn,
-        timeOut: timeOut || 'N/A', 
-        hubstaffTime: Number(hubstaffTime),
-        remarks: remarks || '',
-        timestamp: new Date().toISOString()
-    };
-
-    timeLogs.push(newLog);
-    writeTimeLogs(timeLogs);
-    // Respond with an object that contains the log object, as the frontend expects { log: ... }
-    res.status(201).json({ message: 'Log created successfully', log: newLog }); 
-});
-
-// [U] PUT (Update) a Log by ID (Simplified to match GET/POST structure)
-app.put('/api/logs/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const logIndex = timeLogs.findIndex(log => log.id === id);
-
-    if (logIndex === -1) {
-        return res.status(404).json({ error: 'Log not found.' });
-    }
-    
-    // Apply updates only for allowed fields
-    const updatedLogData = {
-        user: req.body.user,
-        timeIn: req.body.timeIn,
-        timeOut: req.body.timeOut,
-        hubstaffTime: Number(req.body.hubstaffTime),
-        remarks: req.body.remarks,
-    };
-    
-    // Merge the current log with the new data
-    const updatedLog = {
-        ...timeLogs[logIndex],
-        ...updatedLogData,
-        id: id, 
-        updatedAt: new Date().toISOString()
-    };
-
-    timeLogs[logIndex] = updatedLog;
-    writeTimeLogs(timeLogs);
-    res.status(200).json(updatedLog);
-});
-
-// [D] DELETE a Log by ID
-app.delete('/api/logs/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const initialLength = timeLogs.length;
-
-    timeLogs = timeLogs.filter(log => log.id !== id);
-
-    if (timeLogs.length === initialLength) {
-        return res.status(404).json({ error: 'Log not found.' });
-    }
-
-    writeTimeLogs(timeLogs);
-    res.status(204).send();
-});
-
-// Start the server (Vercel ignores this for serverless, but it's good practice)
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});

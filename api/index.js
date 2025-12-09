@@ -1,8 +1,8 @@
 // api/index.js
+const path = require('path'); // <-- Ensure this is the first require/import
 const express = require('express');
-const fs = require('fs/promises'); // Use fs/promises for modern async/await
-const path = require('path'); // <--- CRITICAL FIX: Importing the path module
-const cors = require('cors'); // Required for allowing web browser requests
+const fs = require('fs/promises'); 
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

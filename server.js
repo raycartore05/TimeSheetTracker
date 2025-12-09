@@ -1,9 +1,14 @@
+// server.js (UPDATED CODE)
 const express = require('express');
+const cors = require('cors'); // --- 1. Import CORS ---
 const fs = require('fs');
 const path = require('path');
 const app = express();
-const PORT = 3000;
+const PORT = 3000; 
 const DATA_FILE = path.join(__dirname, 'timelogs.json');
+
+// --- 2. Apply CORS Middleware ---
+app.use(cors()); 
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -13,6 +18,7 @@ app.use(express.json());
 function readTimeLogs() {
     try {
         const data = fs.readFileSync(DATA_FILE, 'utf8');
+        // Safely parse JSON or return an empty array if the file is empty/invalid
         return data ? JSON.parse(data) : [];
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -26,24 +32,18 @@ function readTimeLogs() {
 
 function writeTimeLogs(logs) {
     try {
-        // Write data with 2 spaces for readability
         fs.writeFileSync(DATA_FILE, JSON.stringify(logs, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing time logs file:', error);
     }
 }
 
-// --- Optimization: Helper to Find Max ID ---
 function findMaxId(logs) {
-    // Finds the largest existing ID or returns 0 if the array is empty
-    return logs.reduce((max, log) => Math.max(max, log.id), 0);
+    // Ensures IDs are unique, using timestamp as a fallback if no explicit ID exists
+    return logs.reduce((max, log) => Math.max(max, log.id || 0), 0);
 }
 
-// Initialize timeLogs array from the file upon server start
 let timeLogs = readTimeLogs();
-
-// --- Optimization: Global Counter Variable ---
-// The next ID to be assigned will be 1 greater than the maximum existing ID.
 let nextId = findMaxId(timeLogs) + 1;
 
 
@@ -54,28 +54,33 @@ app.get('/api/logs', (req, res) => {
     res.status(200).json(timeLogs);
 });
 
-// [C] POST a New Log
+// [C] POST a New Log (--- 3. Updated Log Fields ---)
 app.post('/api/logs', (req, res) => {
-    const { taskName, duration, date } = req.body;
+    // Expect the fields sent by index.html
+    const { user, timeIn, timeOut, hubstaffTime, remarks } = req.body; 
 
-    if (!taskName || duration === undefined || !date) {
-        return res.status(400).json({ error: 'Missing required fields: taskName, duration, and date are required.' });
+    // Basic validation based on frontend requirements
+    if (!user || !timeIn || hubstaffTime === undefined) {
+        return res.status(400).json({ error: 'Missing required fields: user, timeIn, and hubstaffTime are required.' });
     }
 
     const newLog = {
-        id: nextId++, // Use current nextId then immediately increment for the next request
-        taskName,
-        duration: Number(duration),
-        date,
-        createdAt: new Date().toISOString()
+        id: nextId++,
+        user,
+        timeIn,
+        timeOut: timeOut || 'N/A', 
+        hubstaffTime: Number(hubstaffTime),
+        remarks: remarks || '',
+        timestamp: new Date().toISOString()
     };
 
     timeLogs.push(newLog);
     writeTimeLogs(timeLogs);
-    res.status(201).json(newLog);
+    // Respond with an object that contains the log object, as the frontend expects { log: ... }
+    res.status(201).json({ message: 'Log created successfully', log: newLog }); 
 });
 
-// [U] PUT (Update) a Log by ID
+// [U] PUT (Update) a Log by ID (Simplified to match GET/POST structure)
 app.put('/api/logs/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const logIndex = timeLogs.findIndex(log => log.id === id);
@@ -83,10 +88,20 @@ app.put('/api/logs/:id', (req, res) => {
     if (logIndex === -1) {
         return res.status(404).json({ error: 'Log not found.' });
     }
-
+    
+    // Apply updates only for allowed fields
+    const updatedLogData = {
+        user: req.body.user,
+        timeIn: req.body.timeIn,
+        timeOut: req.body.timeOut,
+        hubstaffTime: Number(req.body.hubstaffTime),
+        remarks: req.body.remarks,
+    };
+    
+    // Merge the current log with the new data
     const updatedLog = {
         ...timeLogs[logIndex],
-        ...req.body,
+        ...updatedLogData,
         id: id, 
         updatedAt: new Date().toISOString()
     };
@@ -111,7 +126,7 @@ app.delete('/api/logs/:id', (req, res) => {
     res.status(204).send();
 });
 
-// Start the server
+// Start the server (Vercel ignores this for serverless, but it's good practice)
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
